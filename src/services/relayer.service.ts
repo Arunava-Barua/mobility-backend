@@ -1,5 +1,7 @@
 import { logger } from '../utils/logger';
 import Transaction from '../models/transaction.model';
+import { verifyBitcoinTransaction } from '../utils/bitcoin';
+import { checkCollateralExists, createCollateralObject, attestToCollateral } from '../utils/sui';
 
 /**
  * Submit a transaction to be relayed
@@ -37,6 +39,96 @@ export const submitTransaction = async (transaction: any, signature: string) => 
   } catch (error: any) {
     logger.error(`Error in submitTransaction service: ${error.message}`);
     throw new Error(`Failed to submit transaction: ${error.message}`);
+  }
+};
+
+/**
+ * Process a user's Bitcoin deposit
+ * @param suiAddress Sui blockchain address of the user
+ * @param bitcoinAddress Bitcoin address of the user
+ * @param bitcoinTxHash Bitcoin transaction hash
+ * @returns Process result object
+ */
+export const processDeposit = async (
+  suiAddress: string,
+  bitcoinAddress: string,
+  bitcoinTxHash: string
+) => {
+  try {
+    logger.info(`Processing deposit for user with Sui address: ${suiAddress}`);
+    logger.info(`Bitcoin address: ${bitcoinAddress}`);
+    logger.info(`Bitcoin transaction hash: ${bitcoinTxHash}`);
+    
+    // Create a new transaction record
+    const transaction = new Transaction({
+      data: {
+        type: 'deposit',
+        suiAddress,
+        bitcoinAddress,
+        bitcoinTxHash
+      },
+      signature: '', // In production, this should be a valid signature
+      status: 'processing',
+      suiAddress,
+      bitcoinAddress,
+      bitcoinTxHash,
+      createdAt: new Date()
+    });
+    
+    // Save initial transaction record
+    await transaction.save();
+    
+    // Verify Bitcoin transaction
+    const isVerified = await verifyBitcoinTransaction(bitcoinTxHash);
+    
+    if (!isVerified) {
+      transaction.status = 'failed';
+      transaction.error = 'Bitcoin transaction verification failed';
+      await transaction.save();
+      
+      throw new Error('Bitcoin transaction verification failed');
+    }
+    
+    // Check if collateral object exists for the user
+    const collateralExists = await checkCollateralExists(suiAddress);
+    
+    let txHash: string | null;
+    
+    if (collateralExists) {
+      // If collateral exists, attest data to it
+      logger.info(`Collateral exists for ${suiAddress}, attesting data`);
+      txHash = await attestToCollateral(suiAddress, bitcoinAddress, bitcoinTxHash);
+      transaction.collateralCreated = true;
+    } else {
+      // If collateral does not exist, create it
+      logger.info(`Collateral does not exist for ${suiAddress}, creating new collateral object`);
+      txHash = await createCollateralObject(suiAddress, bitcoinAddress, bitcoinTxHash);
+      transaction.collateralCreated = true;
+    }
+    
+    if (!txHash) {
+      transaction.status = 'failed';
+      transaction.error = 'Failed to process on Sui blockchain';
+      await transaction.save();
+      
+      throw new Error('Failed to process on Sui blockchain');
+    }
+    
+    // Update transaction record with success
+    transaction.status = 'completed';
+    transaction.hash = txHash;
+    transaction.processedAt = new Date();
+    await transaction.save();
+    
+    return {
+      id: transaction._id,
+      status: transaction.status,
+      hash: txHash,
+      collateralCreated: !collateralExists
+    };
+  } catch (error: any) {
+    logger.error(`Error in processDeposit service: ${error.message}`);
+    throw new Error(`Failed to process deposit: ${error.message}`);
   }
 };
 

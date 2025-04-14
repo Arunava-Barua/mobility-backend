@@ -10,6 +10,12 @@ const router = Router();
 router.post('/transaction', relayerController.submitTransaction);
 
 /**
+ * @route POST /api/relayer/deposit
+ * @desc Process a Bitcoin deposit
+ */
+router.post('/deposit', relayerController.processDeposit);
+
+/**
  * @route GET /api/relayer/transaction/:txId
  * @desc Get transaction status by ID
  */

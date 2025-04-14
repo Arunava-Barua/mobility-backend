@@ -8,6 +8,10 @@ export interface ITransaction extends Document {
   processedAt?: Date;
   hash?: string;
   error?: string;
+  suiAddress?: string;
+  bitcoinAddress?: string;
+  bitcoinTxHash?: string;
+  collateralCreated?: boolean;
 }
 
 const TransactionSchema: Schema = new Schema({
@@ -36,6 +40,19 @@ const TransactionSchema: Schema = new Schema({
   },
   error: {
     type: String
+  },
+  suiAddress: {
+    type: String
+  },
+  bitcoinAddress: {
+    type: String
+  },
+  bitcoinTxHash: {
+    type: String
+  },
+  collateralCreated: {
+    type: Boolean,
+    default: false
   }
 });
 
