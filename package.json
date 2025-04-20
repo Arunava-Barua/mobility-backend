@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/Arunava-Barua/mobility-backend#readme",
   "dependencies": {
+    "@mysten/sui": "^1.28.0",
     "axios": "^1.8.4",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
