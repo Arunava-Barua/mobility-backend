@@ -1,4 +1,7 @@
 import { logger } from './logger';
+import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { getBitcoinTransactionDetails } from './bitcoin';
+import { getCollateralProofObject, createCollateralProof, attestBtcDeposit } from '../services/attestOrCreateProof.service';
 
 /**
  * Checks if a collateral object exists for the given user
@@ -7,15 +10,10 @@ import { logger } from './logger';
  */
 export async function checkCollateralExists(suiAddress: string): Promise<boolean> {
     try {
-        // TODO: Implement actual Sui blockchain interaction
-        // This is a placeholder function that will need to be implemented
-        // with the actual Sui SDK or API calls to check if a collateral object exists
-        
         logger.info(`Checking if collateral exists for Sui address: ${suiAddress}`);
         
-        // For now, simulate a check that randomly returns true or false
-        // In production, this should be replaced with actual Sui blockchain interaction
-        const exists = Math.random() > 0.5;
+        const proofId = await getCollateralProofObject(suiAddress);
+        const exists = !!proofId;
         
         logger.info(`Collateral ${exists ? 'exists' : 'does not exist'} for address: ${suiAddress}`);
         
@@ -39,22 +37,29 @@ export async function createCollateralObject(
     bitcoinTxHash: string
 ): Promise<string | null> {
     try {
-        // TODO: Implement actual Sui blockchain interaction
-        // This is a placeholder function that will need to be implemented
-        // with the actual Sui SDK or API calls to create a collateral object
-        
         logger.info(`Creating collateral object for Sui address: ${suiAddress}`);
         logger.info(`Bitcoin address: ${bitcoinAddress}`);
         logger.info(`Bitcoin transaction hash: ${bitcoinTxHash}`);
         
-        // Simulate transaction hash generation
-        // In production, this should be replaced with actual Sui transaction execution
-        const txHash = '0x' + Array(64).fill(0).map(() => 
-            Math.floor(Math.random() * 16).toString(16)).join('');
+        // Create the collateral proof
+        const proofId = await createCollateralProof(suiAddress);
         
-        logger.info(`Collateral object created with transaction hash: ${txHash}`);
+        // Get transaction details from Bitcoin blockchain
+        const txDetails = await getBitcoinTransactionDetails(bitcoinTxHash);
+        if (!txDetails) {
+            throw new Error('Failed to retrieve Bitcoin transaction details');
+        }
         
-        return txHash;
+        // Extract amount from transaction (this is simplified, in a real implementation
+        // we would need to identify the correct output for the specified address)
+        const amount = BigInt(txDetails.vout[0].value * 100000000); // Convert BTC to satoshis
+        
+        // Attest the BTC deposit
+        const result = await attestBtcDeposit(suiAddress, bitcoinTxHash, amount);
+        
+        logger.info(`Collateral object created and BTC deposit attested with transaction hash: ${result}`);
+        
+        return result;
     } catch (error: any) {
         logger.error(`Error creating collateral object: ${error.message}`);
         return null;
@@ -74,22 +79,25 @@ export async function attestToCollateral(
     bitcoinTxHash: string
 ): Promise<string | null> {
     try {
-        // TODO: Implement actual Sui blockchain interaction
-        // This is a placeholder function that will need to be implemented
-        // with the actual Sui SDK or API calls to attest to an existing collateral object
-        
         logger.info(`Attesting to collateral for Sui address: ${suiAddress}`);
         logger.info(`Bitcoin address: ${bitcoinAddress}`);
         logger.info(`Bitcoin transaction hash: ${bitcoinTxHash}`);
         
-        // Simulate transaction hash generation
-        // In production, this should be replaced with actual Sui transaction execution
-        const txHash = '0x' + Array(64).fill(0).map(() => 
-            Math.floor(Math.random() * 16).toString(16)).join('');
+        // Get transaction details from Bitcoin blockchain
+        const txDetails = await getBitcoinTransactionDetails(bitcoinTxHash);
+        if (!txDetails) {
+            throw new Error('Failed to retrieve Bitcoin transaction details');
+        }
         
-        logger.info(`Attestation completed with transaction hash: ${txHash}`);
+        // Extract amount from transaction (simplified implementation)
+        const amount = BigInt(txDetails.vout[0].value * 100000000); // Convert BTC to satoshis
         
-        return txHash;
+        // Attest the BTC deposit to existing collateral
+        const result = await attestBtcDeposit(suiAddress, bitcoinTxHash, amount);
+        
+        logger.info(`Attestation completed with transaction hash: ${result}`);
+        
+        return result;
     } catch (error: any) {
         logger.error(`Error attesting to collateral: ${error.message}`);
         return null;

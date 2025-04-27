@@ -4,7 +4,9 @@ import { logger } from '../utils/logger';
 
 /**
  * Submit a transaction to be relayed
+ * Note: This function is temporarily disabled until full implementation
  */
+/*
 export const submitTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { transaction, signature } = req.body;
@@ -31,6 +33,7 @@ export const submitTransaction = async (req: Request, res: Response, next: NextF
     });
   }
 };
+*/
 
 /**
  * Process a user's Bitcoin deposit

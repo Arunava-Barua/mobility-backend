@@ -1,30 +1,56 @@
 import { Router } from 'express';
 import * as relayerController from '../controllers/relayer.controller';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
+import { 
+  submitTransactionSchema, 
+  processDepositSchema, 
+  transactionStatusParamsSchema,
+  transactionsListQuerySchema
+} from '../middleware/validators/relayer.validators';
 
 const router = Router();
 
 /**
  * @route POST /api/relayer/transaction
  * @desc Submit a transaction to be relayed
+ * @note This endpoint is temporarily disabled until full implementation
  */
-router.post('/transaction', relayerController.submitTransaction);
+/*
+router.post(
+  '/transaction',
+  validateBody(submitTransactionSchema),
+  relayerController.submitTransaction
+);
+*/
 
 /**
  * @route POST /api/relayer/deposit
  * @desc Process a Bitcoin deposit
  */
-router.post('/deposit', relayerController.processDeposit);
+router.post(
+  '/deposit',
+  validateBody(processDepositSchema),
+  relayerController.processDeposit
+);
 
 /**
  * @route GET /api/relayer/transaction/:txId
  * @desc Get transaction status by ID
  */
-router.get('/transaction/:txId', relayerController.getTransactionStatus);
+router.get(
+  '/transaction/:txId',
+  validateParams(transactionStatusParamsSchema),
+  relayerController.getTransactionStatus
+);
 
 /**
  * @route GET /api/relayer/transactions
  * @desc Get all transactions (with pagination)
  */
-router.get('/transactions', relayerController.getAllTransactions);
+router.get(
+  '/transactions',
+  validateQuery(transactionsListQuerySchema),
+  relayerController.getAllTransactions
+);
 
 export default router;

@@ -10,8 +10,9 @@ A Node.js and TypeScript backend service for relaying transactions between a DeF
 - MongoDB database integration for transaction storage
 - TypeScript for type safety
 - Express.js web framework
-- Logging with Winston
-- Authentication and authorization
+- Comprehensive logging with Winston
+- Input validation with Joi
+- Error handling middleware
 - Rate limiting
 
 ## Project Structure
@@ -23,6 +24,7 @@ mobility-backend/
 │   ├── controllers/   # Route controllers
 │   ├── models/        # Database models
 │   ├── middleware/    # Custom middleware
+│   │   └── validators/ # Request validation schemas
 │   ├── routes/        # API routes
 │   ├── services/      # Business logic
 │   ├── utils/         # Utility functions
@@ -39,7 +41,7 @@ mobility-backend/
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v16 or higher)
 - npm or yarn
 - MongoDB
 - Access to Blockstream Bitcoin API
@@ -60,8 +62,10 @@ mobility-backend/
    - MongoDB connection string
    - Port number
    - JWT secret
-   - Sui blockchain configuration
-   - Bitcoin API configuration
+   - Sui blockchain configuration:
+     - `RELAYER_PRIVATE_KEY`: The private key for the relayer account
+     - `RELAYER_REGISTRY_ID`: The object ID of the relayer registry on Sui
+     - `WITNESS_REGISTRY_ID`: The object ID of the witness registry on Sui
 5. Build the project:
    ```bash
    npm run build
@@ -78,10 +82,36 @@ npm run dev
 
 ## API Endpoints
 
-- `POST /api/relayer/transaction` - Submit a transaction
-- `POST /api/relayer/deposit` - Process a Bitcoin deposit
-- `GET /api/relayer/transaction/:txId` - Get transaction status
-- `GET /api/relayer/transactions` - Get all transactions with pagination
+### Submit Transaction
+- **Endpoint**: `POST /api/relayer/transaction`
+- **Description**: Submit a transaction to be relayed
+- **Request Body**:
+  ```json
+  {
+    "transaction": { /* Transaction data */ },
+    "signature": "..."
+  }
+  ```
+
+### Process Bitcoin Deposit
+- **Endpoint**: `POST /api/relayer/deposit`
+- **Description**: Process a Bitcoin deposit
+- **Request Body**:
+  ```json
+  {
+    "suiAddress": "0x...",
+    "bitcoinAddress": "...",
+    "bitcoinTxHash": "..."
+  }
+  ```
+
+### Get Transaction Status
+- **Endpoint**: `GET /api/relayer/transaction/:txId`
+- **Description**: Get status of a specific transaction
+
+### List Transactions
+- **Endpoint**: `GET /api/relayer/transactions?page=1&limit=10`
+- **Description**: Get a paginated list of transactions
 
 ## Workflow
 
@@ -90,11 +120,38 @@ npm run dev
 3. User makes a Bitcoin deposit from their wallet
 4. Frontend captures the Bitcoin transaction hash
 5. Frontend sends the transaction data to the backend via `/api/relayer/deposit`
-6. Backend verifies the Bitcoin transaction using Blockstream API
-7. Backend checks if a collateral object exists for the user on Sui blockchain
-8. If no collateral exists, backend creates a new collateral object
-9. If collateral exists, backend attests new data to the existing collateral
-10. Backend returns transaction status to the frontend
+6. Backend verifies the Bitcoin transaction using Blockstream API:
+   - Checks if transaction exists and is confirmed
+   - Ensures transaction has the minimum required confirmations (default: 2)
+7. Backend checks if a collateral object exists for the user on Sui blockchain using the Sui SDK
+8. If no collateral exists, backend creates a new collateral object:
+   - Creates a collateral proof object for the user
+   - Attests the Bitcoin transaction data to the new collateral
+9. If collateral exists, backend attests new data to the existing collateral:
+   - Retrieves the existing collateral proof object
+   - Attests the Bitcoin transaction data to it
+10. Backend returns transaction status and details to the frontend
+
+## Health Check
+
+- **Endpoint**: `GET /health`
+- **Description**: Simple health check to verify the service is running
+
+## Error Handling
+
+The application includes comprehensive error handling:
+- Input validation errors with detailed messages
+- Transaction processing errors with proper status codes
+- Global error handling for unexpected errors
+- Logging of all errors with stack traces in development
+
+## Sui Blockchain Integration
+
+The service integrates with the Sui blockchain using:
+- `@mysten/sui` SDK for transactions and queries
+- Custom Move modules for collateral management:
+  - `create_collateral_proof`: Creates a new collateral proof object
+  - `attest_btc_deposit`: Attests Bitcoin deposit data to a collateral proof
 
 ## License
 

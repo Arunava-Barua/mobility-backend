@@ -8,7 +8,11 @@ import { checkCollateralExists, createCollateralObject, attestToCollateral } fro
  * @param transaction Transaction data
  * @param signature Signature of the transaction
  * @returns Transaction object
+ * 
+ * NOTE: This function is currently not fully implemented and is commented out.
+ * It will be implemented in a future release to support general transaction relaying.
  */
+/*
 export const submitTransaction = async (transaction: any, signature: string) => {
   try {
     // Validate transaction and signature (implement validation logic)
@@ -40,6 +44,13 @@ export const submitTransaction = async (transaction: any, signature: string) => 
     logger.error(`Error in submitTransaction service: ${error.message}`);
     throw new Error(`Failed to submit transaction: ${error.message}`);
   }
+};
+*/
+
+// Temporary implementation that returns an error
+export const submitTransaction = async (transaction: any, signature: string) => {
+  logger.warn('submitTransaction function is not yet implemented');
+  throw new Error('Transaction submission is not yet implemented');
 };
 
 /**
