@@ -12,6 +12,13 @@ export interface ITransaction extends Document {
   bitcoinAddress?: string;
   bitcoinTxHash?: string;
   collateralCreated?: boolean;
+  // Withdrawal specific fields
+  withdrawalAmount?: number;
+  collateralProofId?: string;
+  bitcoinWithdrawalTxHash?: string;
+  withdrawalAttestations?: number;
+  withdrawalThresholdReached?: boolean;
+  type?: 'deposit' | 'withdrawal';
 }
 
 const TransactionSchema: Schema = new Schema({
@@ -51,6 +58,29 @@ const TransactionSchema: Schema = new Schema({
     type: String
   },
   collateralCreated: {
+    type: Boolean,
+    default: false
+  },
+  // Withdrawal specific fields
+  type: {
+    type: String,
+    enum: ['deposit', 'withdrawal'],
+    default: 'deposit'
+  },
+  withdrawalAmount: {
+    type: Number
+  },
+  collateralProofId: {
+    type: String
+  },
+  bitcoinWithdrawalTxHash: {
+    type: String
+  },
+  withdrawalAttestations: {
+    type: Number,
+    default: 0
+  },
+  withdrawalThresholdReached: {
     type: Boolean,
     default: false
   }

@@ -5,6 +5,9 @@ import { config } from './config';
 import { logger } from './utils/logger';
 import { connectDatabase } from './utils/database';
 import routes from './routes';
+import { setupWithdrawalListener } from './services/withdrawal.service';
+import { setupContinuousEventListener } from './services/event-listener.service';
+import { initializeBitcoinWithdrawalService } from './utils/withdrawal';
 
 // Initialize express app
 const app: Application = express();
@@ -26,22 +29,70 @@ connectDatabase().then(() => {
     res.status(200).json({ status: 'ok', message: 'Relayer service is running' });
   });
 
-  // Error handling middleware
+  // 404 handler
+  app.use((req: Request, res: Response) => {
+    res.status(404).json({
+      status: 'error',
+      message: `Cannot ${req.method} ${req.path}`
+    });
+  });
+
+  // Error handling middleware for validation errors
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    if (err.name === 'ValidationError') {
+      logger.warn(`Validation error: ${err.message}`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation error',
+        errors: err.details?.map((detail: any) => detail.message) || [err.message]
+      });
+    }
+    next(err);
+  });
+
+  // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     logger.error(`Error: ${err.message}`);
+    logger.error(err.stack || 'No stack trace available');
+    
     res.status(500).json({
       status: 'error',
       message: 'Internal Server Error',
-      ...(process.env.NODE_ENV !== 'production' && { error: err.message })
+      ...(config.nodeEnv !== 'production' && { error: err.message, stack: err.stack })
     });
   });
 
   // Start the server
   app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
+    logger.info(`Environment: ${config.nodeEnv}`);
+    logger.info(`Health check available at: http://localhost:${PORT}/health`);
+    
+    // Initialize Bitcoin withdrawal service
+    initializeBitcoinWithdrawalService();
+    logger.info('Bitcoin withdrawal service initialized');
+    
+    // Setup withdrawal processor for pending withdrawals
+    setupWithdrawalListener();
+    logger.info('Withdrawal processor started');
+    
+    // Setup continuous event listener for realtime events
+    setupContinuousEventListener();
+    logger.info('Continuous Sui event listener started');
   });
 }).catch(err => {
   logger.error(`Failed to start server: ${err.message}`);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions and rejections
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
 
