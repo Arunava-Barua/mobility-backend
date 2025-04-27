@@ -3,14 +3,12 @@ import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { logger } from './logger';
-import axios from "axios";
 import dotenv from "dotenv";
 import { PACKAGE_ID, MODULE_NAME } from "../services/attestOrCreateProof.service";
 
 dotenv.config();
 
 // Constants
-const MASTER_PRIVATE_KEY = process.env.MASTER_PRIVATE_KEY;
 const MASTER_REGISTRY_ID = process.env.MASTER_REGISTRY_ID;
 
 // Threshold for withdrawal confirmations (for now we'll set it to 1 since there's only one relayer)
@@ -167,23 +165,37 @@ export async function initiateWithdrawal(
   }
 }
 
+import { 
+  estimateFeeRate, 
+  getWalletBalance, 
+  sendBitcoinTransaction,
+  initializeBitcoinWallet
+} from './bitcoin-wallet';
+
 /**
- * Calculates the current Bitcoin network fee rate
- * @returns Estimated fee rate in satoshis per byte
+ * Initialize the Bitcoin wallet service
  */
-async function estimateBitcoinFee(): Promise<number> {
+export function initializeBitcoinWithdrawalService() {
   try {
-    // In a real implementation, you would:
-    // - Query a Bitcoin fee estimation service
-    // - Get the current recommended fee rate
-    // - Return it in satoshis per byte
-    
-    // For now, return a fixed fee rate
-    return 10; // 10 satoshis per byte - standard fee
+    initializeBitcoinWallet();
+    logger.info('Bitcoin withdrawal service initialized successfully');
   } catch (error: any) {
-    logger.error(`Error estimating Bitcoin fee rate: ${error.message}`);
-    return 20; // Higher fallback fee to ensure transaction gets confirmed
+    logger.error(`Failed to initialize Bitcoin withdrawal service: ${error.message}`);
   }
+}
+
+/**
+ * Validates a Bitcoin address format
+ * @param bitcoinAddress The Bitcoin address to validate
+ * @returns Whether the address is valid
+ */
+export function validateBitcoinAddress(bitcoinAddress: string): boolean {
+  // Basic validation for Bitcoin address formats
+  // P2PKH addresses start with 1
+  // P2SH addresses start with 3
+  // Bech32 addresses start with bc1
+  return !!bitcoinAddress.match(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/) || 
+         !!bitcoinAddress.match(/^bc1[a-z0-9]{39,59}$/);
 }
 
 /**
@@ -193,13 +205,14 @@ async function estimateBitcoinFee(): Promise<number> {
  */
 async function checkSufficientBitcoinBalance(amount: number): Promise<boolean> {
   try {
-    // In a real implementation, you would:
-    // - Query your Bitcoin wallet or service
-    // - Get the current available balance
-    // - Compare with the requested amount plus fees
+    const balance = await getWalletBalance();
+    logger.info(`Current wallet balance: ${balance} satoshis, requested amount: ${amount} satoshis`);
     
-    // For now, assume we have sufficient balance for testing
-    return true;
+    // Allow withdrawals only if we have at least 20% more than the requested amount
+    // This accounts for fees and prevents draining the wallet completely
+    const minimumRequired = Math.floor(amount * 1.2);
+    
+    return balance >= minimumRequired;
   } catch (error: any) {
     logger.error(`Error checking Bitcoin balance: ${error.message}`);
     return false;
@@ -220,58 +233,34 @@ export async function processWithdrawalToBitcoin(
     logger.info(`Processing Bitcoin withdrawal to ${bitcoinAddress} of ${amount} satoshis`);
     
     // Validate Bitcoin address format
-    if (!bitcoinAddress.match(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/) && 
-        !bitcoinAddress.match(/^bc1[a-z0-9]{39,59}$/)) {
+    if (!validateBitcoinAddress(bitcoinAddress)) {
       logger.error(`Invalid Bitcoin address format: ${bitcoinAddress}`);
       return null;
     }
     
     // Check for reasonable amount
-    if (amount <= 0 || amount > 1000000000) { // Max 10 BTC
-      logger.error(`Invalid withdrawal amount: ${amount}`);
+    const MIN_WITHDRAWAL = 10000; // 10,000 satoshis (0.0001 BTC)
+    const MAX_WITHDRAWAL = 1000000000; // 10 BTC in satoshis
+    
+    if (amount < MIN_WITHDRAWAL) {
+      logger.error(`Withdrawal amount too small: ${amount} satoshis (minimum: ${MIN_WITHDRAWAL})`);
       return null;
     }
     
-    // Estimate the network fee
-    const feeRate = await estimateBitcoinFee();
-    
-    // Estimate transaction size (typical P2PKH transaction)
-    const estimatedTxSize = 250; // bytes
-    
-    // Calculate the fee
-    const fee = feeRate * estimatedTxSize;
-    
-    // Check if we need to adjust the amount
-    const totalAmount = amount + fee;
+    if (amount > MAX_WITHDRAWAL) {
+      logger.error(`Withdrawal amount too large: ${amount} satoshis (maximum: ${MAX_WITHDRAWAL})`);
+      return null;
+    }
     
     // Check if we have sufficient balance
-    const hasSufficientBalance = await checkSufficientBitcoinBalance(totalAmount);
+    const hasSufficientBalance = await checkSufficientBitcoinBalance(amount);
     if (!hasSufficientBalance) {
-      logger.error(`Insufficient Bitcoin balance for withdrawal of ${amount} satoshis plus ${fee} fee`);
+      logger.error(`Insufficient Bitcoin balance for withdrawal of ${amount} satoshis`);
       return null;
     }
     
-    // This would typically involve:
-    // 1. Connecting to a Bitcoin wallet or service
-    // 2. Creating a transaction
-    // 3. Signing it with the master wallet private key
-    // 4. Broadcasting it to the Bitcoin network
-    
-    // For now, we'll simulate this with a mock transaction
-    // In a real implementation, you would:
-    // - Use a Bitcoin library like bitcoinjs-lib
-    // - Connect to a Bitcoin node or service
-    // - Create and sign a real transaction
-    
-    logger.info(`Creating Bitcoin transaction to ${bitcoinAddress} for ${amount} satoshis with fee ${fee} satoshis`);
-    
-    // Add jitter to simulate real transaction processing
-    const processingTime = 2000 + Math.floor(Math.random() * 1000);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate a mock transaction hash
-    const txHash = `mock_bitcoin_tx_${Date.now().toString(16)}`;
-    
+    // Send the transaction
+    const txHash = await sendBitcoinTransaction(bitcoinAddress, amount);
     logger.info(`Bitcoin withdrawal processed with transaction hash: ${txHash}`);
     
     return txHash;

@@ -7,6 +7,9 @@ A Node.js and TypeScript backend service for relaying transactions between a DeF
 - RESTful API for transaction relaying
 - Bitcoin transaction verification using Blockstream API
 - Sui blockchain integration for collateral management
+- Withdrawals from Sui to Bitcoin blockchain
+- Continuous event listener for Sui blockchain events
+- Bitcoin transaction creation and signing with bitcoinjs-lib
 - MongoDB database integration for transaction storage
 - TypeScript for type safety
 - Express.js web framework
@@ -66,6 +69,9 @@ mobility-backend/
      - `RELAYER_PRIVATE_KEY`: The private key for the relayer account
      - `RELAYER_REGISTRY_ID`: The object ID of the relayer registry on Sui
      - `WITNESS_REGISTRY_ID`: The object ID of the witness registry on Sui
+   - Bitcoin wallet configuration:
+     - `MASTER_BITCOIN_PRIVATE_KEY`: The private key for the master Bitcoin wallet (in WIF format)
+     - `BITCOIN_NETWORK`: The Bitcoin network to use (e.g., `testnet` or `mainnet`)
 5. Build the project:
    ```bash
    npm run build
@@ -105,6 +111,10 @@ npm run dev
   }
   ```
 
+### Get Withdrawal Status
+- **Endpoint**: `GET /api/relayer/withdrawals/:suiAddress`
+- **Description**: Get status of withdrawals for a specific Sui address
+
 ### Get Transaction Status
 - **Endpoint**: `GET /api/relayer/transaction/:txId`
 - **Description**: Get status of a specific transaction
@@ -113,7 +123,9 @@ npm run dev
 - **Endpoint**: `GET /api/relayer/transactions?page=1&limit=10`
 - **Description**: Get a paginated list of transactions
 
-## Workflow
+## Workflows
+
+### Deposit Workflow
 
 1. User connects their Sui and Bitcoin wallets to the frontend
 2. Frontend captures the Sui and Bitcoin addresses
@@ -131,6 +143,28 @@ npm run dev
    - Retrieves the existing collateral proof object
    - Attests the Bitcoin transaction data to it
 10. Backend returns transaction status and details to the frontend
+
+### Withdrawal Workflow
+
+1. User initiates a withdrawal on the Sui blockchain by directly calling the `withdraw_btc` function with:
+   - Their collateral proof object
+   - BTC amount to withdraw
+   - Recipient Bitcoin address
+2. The Sui smart contract emits a `WithdrawRequest` event
+3. Backend's continuous event listener detects the `WithdrawRequest` event
+4. Backend validates and records the withdrawal event:
+   - Validates the Bitcoin address format
+   - Validates the withdrawal amount
+   - Records the transaction with a 'processing' status
+5. Backend attests to the withdrawal event:
+   - Adds an attestation to the transaction record
+   - When the attestation threshold is reached (default: 1), marks the transaction as ready for processing
+6. Bitcoin transaction processing:
+   - Backend creates a Bitcoin transaction to the specified address
+   - Transaction is signed with the master wallet private key
+   - Transaction is broadcast to the Bitcoin network
+   - Transaction hash is recorded in the database
+7. Frontend can check withdrawal status via `/api/relayer/withdrawals/:suiAddress`
 
 ## Health Check
 
@@ -152,6 +186,16 @@ The service integrates with the Sui blockchain using:
 - Custom Move modules for collateral management:
   - `create_collateral_proof`: Creates a new collateral proof object
   - `attest_btc_deposit`: Attests Bitcoin deposit data to a collateral proof
+  - `withdraw_btc`: Initiates a Bitcoin withdrawal
+
+## Bitcoin Integration
+
+The service integrates with the Bitcoin blockchain using:
+- `bitcoinjs-lib` for transaction creation and signing
+- Blockstream API for transaction verification and UTXO management
+- Transaction fee estimation based on current network conditions
+- UTXO selection algorithm for optimizing transaction fees
+- Comprehensive address validation and security checks
 
 ## License
 

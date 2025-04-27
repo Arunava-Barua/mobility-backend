@@ -24,7 +24,9 @@
   "homepage": "https://github.com/Arunava-Barua/mobility-backend#readme",
   "dependencies": {
     "@mysten/sui": "^1.28.0",
-    "axios": "^1.8.4",
+    "@types/bitcoinjs-lib": "^4.0.1",
+    "axios": "^1.9.0",
+    "bitcoinjs-lib": "^6.1.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",

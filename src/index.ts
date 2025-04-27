@@ -7,6 +7,7 @@ import { connectDatabase } from './utils/database';
 import routes from './routes';
 import { setupWithdrawalListener } from './services/withdrawal.service';
 import { setupContinuousEventListener } from './services/event-listener.service';
+import { initializeBitcoinWithdrawalService } from './utils/withdrawal';
 
 // Initialize express app
 const app: Application = express();
@@ -66,6 +67,10 @@ connectDatabase().then(() => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${config.nodeEnv}`);
     logger.info(`Health check available at: http://localhost:${PORT}/health`);
+    
+    // Initialize Bitcoin withdrawal service
+    initializeBitcoinWithdrawalService();
+    logger.info('Bitcoin withdrawal service initialized');
     
     // Setup withdrawal processor for pending withdrawals
     setupWithdrawalListener();

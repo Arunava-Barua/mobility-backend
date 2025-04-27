@@ -2,6 +2,7 @@ import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
 import { logger } from '../utils/logger';
 import { PACKAGE_ID, MODULE_NAME } from './attestOrCreateProof.service';
 import { recordWithdrawalEvent } from './withdrawal.service';
+import { validateBitcoinAddress } from '../utils/withdrawal';
 import mongoose from 'mongoose';
 
 // Schema for cursor state
@@ -267,27 +268,7 @@ const fetchWithdrawEvents = async (client: SuiClient): Promise<any[]> => {
   }
 };
 
-/**
- * Validate Bitcoin address format
- * @param address Bitcoin address to validate
- * @returns Whether the address appears valid
- */
-const validateBitcoinAddress = (address: string): boolean => {
-  // Basic Bitcoin address validation
-  // In production, use a Bitcoin-specific library for rigorous validation
-  
-  // Check length (26-35 characters typical for Bitcoin addresses)
-  if (address.length < 26 || address.length > 35) return false;
-  
-  // Must start with 1, 3, or bc1
-  if (!address.startsWith('1') && !address.startsWith('3') && !address.startsWith('bc1')) {
-    return false;
-  }
-  
-  // Basic character set validation
-  const validChars = /^[a-zA-Z0-9]+$/;
-  return validChars.test(address);
-};
+// Using the bitcoin-wallet utility's validation function
 
 /**
  * Process a withdraw event
