@@ -5,7 +5,8 @@ import {
   submitTransactionSchema, 
   processDepositSchema, 
   transactionStatusParamsSchema,
-  transactionsListQuerySchema
+  transactionsListQuerySchema,
+  withdrawalAddressParamSchema
 } from '../middleware/validators/relayer.validators';
 
 const router = Router();
@@ -51,6 +52,16 @@ router.get(
   '/transactions',
   validateQuery(transactionsListQuerySchema),
   relayerController.getAllTransactions
+);
+
+/**
+ * @route GET /api/relayer/withdrawals/:suiAddress
+ * @desc Get withdrawal status for a user
+ */
+router.get(
+  '/withdrawals/:suiAddress',
+  validateParams(withdrawalAddressParamSchema),
+  relayerController.getWithdrawalStatus
 );
 
 export default router;

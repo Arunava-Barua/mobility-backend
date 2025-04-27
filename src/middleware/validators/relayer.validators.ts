@@ -67,3 +67,14 @@ export const transactionsListQuerySchema = Joi.object({
     'number.max': 'Limit cannot exceed 100'
   })
 });
+
+/**
+ * Schema for validating withdrawal address parameter
+ */
+export const withdrawalAddressParamSchema = Joi.object({
+  suiAddress: Joi.string().required().pattern(/^0x[a-fA-F0-9]+$/).messages({
+    'any.required': 'Sui address is required',
+    'string.empty': 'Sui address cannot be empty',
+    'string.pattern.base': 'Sui address must be a valid hexadecimal address starting with 0x'
+  })
+});

@@ -5,6 +5,8 @@ import { config } from './config';
 import { logger } from './utils/logger';
 import { connectDatabase } from './utils/database';
 import routes from './routes';
+import { setupWithdrawalListener } from './services/withdrawal.service';
+import { setupContinuousEventListener } from './services/event-listener.service';
 
 // Initialize express app
 const app: Application = express();
@@ -64,6 +66,14 @@ connectDatabase().then(() => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${config.nodeEnv}`);
     logger.info(`Health check available at: http://localhost:${PORT}/health`);
+    
+    // Setup withdrawal processor for pending withdrawals
+    setupWithdrawalListener();
+    logger.info('Withdrawal processor started');
+    
+    // Setup continuous event listener for realtime events
+    setupContinuousEventListener();
+    logger.info('Continuous Sui event listener started');
   });
 }).catch(err => {
   logger.error(`Failed to start server: ${err.message}`);

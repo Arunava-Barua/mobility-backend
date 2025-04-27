@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as relayerService from '../services/relayer.service';
+import * as withdrawalService from '../services/withdrawal.service';
 import { logger } from '../utils/logger';
+import Transaction from '../models/transaction.model';
 
 /**
  * Submit a transaction to be relayed
@@ -130,6 +132,48 @@ export const getAllTransactions = async (req: Request, res: Response, next: Next
     res.status(500).json({
       status: 'error',
       message: error.message || 'Error fetching transactions'
+    });
+  }
+};
+
+/**
+ * Get status of pending withdrawals
+ */
+export const getWithdrawalStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { suiAddress } = req.params;
+    
+    if (!suiAddress) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Sui address is required'
+      });
+      return;
+    }
+    
+    // Find withdrawals for this user
+    const withdrawals = await Transaction.find({
+      type: 'withdrawal',
+      suiAddress
+    }).sort({ createdAt: -1 }).limit(10);
+    
+    res.status(200).json({
+      status: 'success',
+      data: withdrawals.map(w => ({
+        id: w._id,
+        status: w.status,
+        amount: w.withdrawalAmount,
+        bitcoinAddress: w.bitcoinAddress,
+        createdAt: w.createdAt,
+        processedAt: w.processedAt,
+        bitcoinTxHash: w.bitcoinWithdrawalTxHash
+      }))
+    });
+  } catch (error: any) {
+    logger.error(`Error getting withdrawal status: ${error.message}`);
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Error getting withdrawal status'
     });
   }
 };

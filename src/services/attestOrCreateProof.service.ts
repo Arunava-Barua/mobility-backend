@@ -8,9 +8,9 @@ import { logger } from "../utils/logger";
 dotenv.config();
 
 // Constants
-const PACKAGE_ID =
+export const PACKAGE_ID =
   "0x58fd4af89d8481a971d9458e5410e8952dfbf98f9105060c654757d744efd033";
-const MODULE_NAME = "attest_btc_deposit";
+export const MODULE_NAME = "attest_btc_deposit";
 
 const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY!;
 const RELAYER_REGISTRY_ID = process.env.RELAYER_REGISTRY_ID!;
